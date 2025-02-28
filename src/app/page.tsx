@@ -6,12 +6,9 @@ import { useEffect, useState } from "react";
 import type { Comic } from "@/types";
 import FilterControls from "@/components/FilterControls";
 import Description from "@/components/Description";
-import {
-  ExternalLink,
-  History,
-  Loader2,
-  RefreshCcw,
-} from "lucide-react";
+import { ExternalLink, History, Loader2, RefreshCcw } from "lucide-react";
+
+const MAX_PAGES_TO_TRY = 30;
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
@@ -100,34 +97,68 @@ export default function Home() {
     localStorage.setItem("comicHistory", JSON.stringify(comicHistory));
   }, [comicHistory]);
 
+  const fetchComicsFromPage = async (page: number) => {
+    const response = await fetch(`/api/comick?limit=50&page=${page}`);
+
+    if (!response.ok) {
+      throw new Error(`API request failed with status ${response.status}`);
+    }
+
+    return await response.json();
+  };
+
+  const filterComics = (comics: Comic[]) => {
+    return comics.filter((comic: Comic) => {
+      const ratingMatch = comic.content_rating
+        ? contentRating.includes(comic.content_rating)
+        : true;
+
+      const originMatch = comic.country ? origin.includes(comic.country) : true;
+
+      const statusMatch = comic.status ? status.includes(comic.status) : true;
+
+      return ratingMatch && originMatch && statusMatch;
+    });
+  };
+
   const findRandomComic = async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const randomPage = Math.floor(Math.random() * 30) + 1;
+      const pagesToTry = Array.from(
+        { length: MAX_PAGES_TO_TRY },
+        (_, i) => i + 1
+      );
 
-      const response = await fetch(`/api/comick?limit=50&page=${randomPage}`);
-
-      if (!response.ok) {
-        throw new Error(`API request failed with status ${response.status}`);
+      for (let i = pagesToTry.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pagesToTry[i], pagesToTry[j]] = [pagesToTry[j], pagesToTry[i]];
       }
 
-      const data = await response.json();
+      let filteredComics: Comic[] = [];
+      let pagesTriedCount = 0;
 
-      const filteredComics = data.filter((comic: Comic) => {
-        const ratingMatch = comic.content_rating
-          ? contentRating.includes(comic.content_rating)
-          : true;
+      for (const page of pagesToTry) {
+        pagesTriedCount++;
 
-        const originMatch = comic.country
-          ? origin.includes(comic.country)
-          : true;
+        try {
+          const comics = await fetchComicsFromPage(page);
+          const filtered = filterComics(comics);
 
-        const statusMatch = comic.status ? status.includes(comic.status) : true;
+          if (filtered.length > 0) {
+            filteredComics = filtered;
+            break;
+          }
 
-        return ratingMatch && originMatch && statusMatch;
-      });
+          if (pagesTriedCount === Math.floor(MAX_PAGES_TO_TRY / 2)) {
+            setError("Still searching for comics that match your criteria...");
+          }
+        } catch (err) {
+          console.error(`Error fetching page ${page}:`, err);
+          continue;
+        }
+      }
 
       if (filteredComics.length === 0) {
         throw new Error(
@@ -146,6 +177,7 @@ export default function Home() {
       }
 
       setFoundComic(selectedComic);
+      setError(null);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "An unknown error occurred"
