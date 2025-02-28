@@ -5,14 +5,30 @@ export async function GET() {
     const response = await fetch("https://api.comick.io/genre/", {
       headers: {
         "Content-Type": "application/json",
+        Accept: "application/json",
       },
+      method: "GET",
     });
 
     if (!response.ok) {
       throw new Error(`API responded with status: ${response.status}`);
     }
 
-    const data = await response.json();
+    const text = await response.text();
+    if (!text) {
+      return NextResponse.json([], { status: 200 });
+    }
+
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (parseError) {
+      console.error("Error parsing JSON:", parseError);
+      return NextResponse.json(
+        { error: "Failed to parse genre data" },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json(data);
   } catch (error) {

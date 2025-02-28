@@ -11,7 +11,9 @@ export async function GET(request: NextRequest) {
       {
         headers: {
           "Content-Type": "application/json",
+          Accept: "application/json",
         },
+        method: "GET",
       }
     );
 
@@ -19,7 +21,21 @@ export async function GET(request: NextRequest) {
       throw new Error(`API responded with status: ${response.status}`);
     }
 
-    const data = await response.json();
+    const text = await response.text();
+    if (!text) {
+      return NextResponse.json({ data: [] }, { status: 200 });
+    }
+
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (parseError) {
+      console.error("Error parsing JSON:", parseError);
+      return NextResponse.json(
+        { error: "Failed to parse response data" },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json(data);
   } catch (error) {

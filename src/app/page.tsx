@@ -166,13 +166,35 @@ export default function Home() {
   }, [excludedGenres]);
 
   const fetchComicsFromPage = async (page: number) => {
-    const response = await fetch(`/api/comick?limit=50&page=${page}`);
+    try {
+      const response = await fetch(`/api/comick?limit=50&page=${page}`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+      });
 
-    if (!response.ok) {
-      throw new Error(`API request failed with status ${response.status}`);
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
+
+      const text = await response.text();
+      if (!text || text.trim() === "") {
+        console.warn(`Empty response received from page ${page}`);
+        return [];
+      }
+
+      try {
+        const data = JSON.parse(text);
+        return data;
+      } catch (parseError) {
+        console.error(`Error parsing JSON from page ${page}:`, parseError);
+        return [];
+      }
+    } catch (error) {
+      console.error(`Error fetching page ${page}:`, error);
+      throw error;
     }
-
-    return await response.json();
   };
 
   const filterComics = useCallback(
@@ -254,7 +276,19 @@ export default function Home() {
           pagesTriedCount++;
 
           try {
-            const comics = await fetchComicsFromPage(page);
+            const comicsResponse = await fetchComicsFromPage(page);
+
+            const comics = Array.isArray(comicsResponse)
+              ? comicsResponse
+              : comicsResponse && Array.isArray(comicsResponse.data)
+              ? comicsResponse.data
+              : [];
+
+            if (comics.length === 0) {
+              console.warn(`No comics data found on page ${page}`);
+              continue;
+            }
+
             const filtered = filterComics(comics);
 
             if (filtered.length > 0) {
@@ -276,7 +310,18 @@ export default function Home() {
         if (filteredComics.length === 0 && attempt === maxAttempts - 1) {
           for (const page of pagesToTry.slice(0, 5)) {
             try {
-              const comics = await fetchComicsFromPage(page);
+              const comicsResponse = await fetchComicsFromPage(page);
+
+              const comics = Array.isArray(comicsResponse)
+                ? comicsResponse
+                : comicsResponse && Array.isArray(comicsResponse.data)
+                ? comicsResponse.data
+                : [];
+
+              if (comics.length === 0) {
+                continue;
+              }
+
               const filtered = comics.filter((comic: Comic) => {
                 const ratingMatch = comic.content_rating
                   ? contentRating.includes(comic.content_rating)
