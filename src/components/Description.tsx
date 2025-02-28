@@ -9,16 +9,8 @@ const Description: React.FC<DescriptionProps> = ({ content }) => {
     let html = markdown;
     
     html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 underline">$1</a>');
-    
-    html = html.replace(/\(?(https?:\/\/page\.kakao\.com\/[^),\s]+)\)?/g, (match, url) => {
-      return '<a href="' + url + '" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 underline">KakaoPage</a>';
-    });
-    
-    html = html.replace(/\(?(https?:\/\/webtoon\.kakao\.com\/[^),\s]+)\)?/g, (match, url) => {
-      return '<a href="' + url + '" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 underline">Daum</a>';
-    });
-    
-    html = html.replace(/\((https?:\/\/[^)]+)\)/g, (match, url) => {
+
+    html = html.replace(/\((https?:\/\/[^)]+)\)/g, function(match, url) {
       if (url.includes('<a href') || match.includes('<a href')) {
         return match;
       }
@@ -33,11 +25,11 @@ const Description: React.FC<DescriptionProps> = ({ content }) => {
     html = html.replace(/^## (.+)$/gm, '<h2 class="text-xl font-semibold my-2">$1</h2>');
     html = html.replace(/^# (.+)$/gm, '<h1 class="text-2xl font-bold my-3">$1</h1>');
     
-    html = html.replace(/(?<!["\(<])https?:\/\/[^\s<)]+(?!["\)>])/g, (match) => {
-      if (match.includes('<a href')) {
+    html = html.replace(/(^|[^"])(https?:\/\/[^\s<)]+)([^">]|$)/g, function(match, before, url, after) {
+      if (url.includes('<a href')) {
         return match;
       }
-      return '<a href="' + match + '" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 underline">' + match + '</a>';
+      return before + '<a href="' + url + '" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 underline">' + url + '</a>' + after;
     });
     
     html = html.replace(/\n/g, '<br/>');
