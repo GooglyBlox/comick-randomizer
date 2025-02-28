@@ -117,7 +117,11 @@ export default function Home() {
 
       const statusMatch = comic.status ? status.includes(comic.status) : true;
 
-      return ratingMatch && originMatch && statusMatch;
+      const isInHistory = [...comicHistory, foundComic]
+        .filter(Boolean)
+        .some((historyComic) => historyComic && historyComic.id === comic.id);
+
+      return ratingMatch && originMatch && statusMatch && !isInHistory;
     });
   };
 
@@ -138,25 +142,63 @@ export default function Home() {
 
       let filteredComics: Comic[] = [];
       let pagesTriedCount = 0;
+      const maxAttempts = 3;
+      let attempt = 0;
 
-      for (const page of pagesToTry) {
-        pagesTriedCount++;
+      while (attempt < maxAttempts && filteredComics.length === 0) {
+        attempt++;
+        pagesTriedCount = 0;
 
-        try {
-          const comics = await fetchComicsFromPage(page);
-          const filtered = filterComics(comics);
+        for (const page of pagesToTry) {
+          pagesTriedCount++;
 
-          if (filtered.length > 0) {
-            filteredComics = filtered;
-            break;
+          try {
+            const comics = await fetchComicsFromPage(page);
+            const filtered = filterComics(comics);
+
+            if (filtered.length > 0) {
+              filteredComics = filtered;
+              break;
+            }
+
+            if (pagesTriedCount === Math.floor(MAX_PAGES_TO_TRY / 2)) {
+              setError(
+                "Still searching for comics that match your criteria..."
+              );
+            }
+          } catch (err) {
+            console.error(`Error fetching page ${page}:`, err);
+            continue;
           }
+        }
 
-          if (pagesTriedCount === Math.floor(MAX_PAGES_TO_TRY / 2)) {
-            setError("Still searching for comics that match your criteria...");
+        if (filteredComics.length === 0 && attempt === maxAttempts - 1) {
+          for (const page of pagesToTry.slice(0, 5)) {
+            try {
+              const comics = await fetchComicsFromPage(page);
+              const filtered = comics.filter((comic: Comic) => {
+                const ratingMatch = comic.content_rating
+                  ? contentRating.includes(comic.content_rating)
+                  : true;
+                const originMatch = comic.country
+                  ? origin.includes(comic.country)
+                  : true;
+                const statusMatch = comic.status
+                  ? status.includes(comic.status)
+                  : true;
+
+                return ratingMatch && originMatch && statusMatch;
+              });
+
+              if (filtered.length > 0) {
+                filteredComics = filtered;
+                break;
+              }
+            } catch (err) {
+              console.error(`Error fetching page ${page} (fallback):`, err);
+              continue;
+            }
           }
-        } catch (err) {
-          console.error(`Error fetching page ${page}:`, err);
-          continue;
         }
       }
 
