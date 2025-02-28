@@ -5,10 +5,9 @@
 import { useEffect, useState } from "react";
 import type { Comic } from "@/types";
 import FilterControls from "@/components/FilterControls";
+import Description from "@/components/Description";
 import {
-  BookOpenCheck,
   ExternalLink,
-  Github,
   History,
   Loader2,
   RefreshCcw,
@@ -328,9 +327,7 @@ export default function Home() {
                         <h4 className="text-sm font-medium text-gray-400 mb-1">
                           Description
                         </h4>
-                        <p className="text-gray-300 text-sm">
-                          {foundComic.desc}
-                        </p>
+                        <Description content={foundComic.desc} />
                       </div>
                     )}
                   </div>
