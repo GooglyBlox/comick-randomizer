@@ -2,11 +2,18 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
-import { useEffect, useState } from "react";
-import type { Comic } from "@/types";
-import FilterControls from "@/components/FilterControls";
+import { useEffect, useState, useCallback } from "react";
+import type { Comic, Genre } from "@/types";
+import FilterPanel from "@/components/FilterPanel";
 import Description from "@/components/Description";
-import { ExternalLink, History, Loader2, RefreshCcw } from "lucide-react";
+import {
+  ExternalLink,
+  History,
+  Loader2,
+  RefreshCcw,
+  CheckCircle,
+  XCircle,
+} from "lucide-react";
 
 const MAX_PAGES_TO_TRY = 30;
 
@@ -29,12 +36,20 @@ export default function Home() {
     "gb",
   ]);
   const [status, setStatus] = useState<number[]>([1, 2, 3, 4]);
+  const [includedGenres, setIncludedGenres] = useState<number[]>([]);
+  const [excludedGenres, setExcludedGenres] = useState<number[]>([]);
+  const [genres, setGenres] = useState<Genre[]>([]);
+  const [genreMap, setGenreMap] = useState<Map<number, Genre>>(new Map());
+  const [isLoadingGenres, setIsLoadingGenres] = useState(true);
+  const [isFilterExpanded, setIsFilterExpanded] = useState(false);
 
   useEffect(() => {
     const savedContentRating = localStorage.getItem("contentRating");
     const savedOrigin = localStorage.getItem("origin");
     const savedStatus = localStorage.getItem("status");
     const savedHistory = localStorage.getItem("comicHistory");
+    const savedIncludedGenres = localStorage.getItem("includedGenres");
+    const savedExcludedGenres = localStorage.getItem("excludedGenres");
 
     if (savedContentRating) {
       try {
@@ -79,6 +94,51 @@ export default function Home() {
         console.error("Failed to parse saved comic history");
       }
     }
+
+    if (savedIncludedGenres) {
+      try {
+        const parsed = JSON.parse(savedIncludedGenres);
+        if (Array.isArray(parsed)) {
+          setIncludedGenres(parsed);
+        }
+      } catch (e) {
+        console.error("Failed to parse saved included genres");
+      }
+    }
+
+    if (savedExcludedGenres) {
+      try {
+        const parsed = JSON.parse(savedExcludedGenres);
+        if (Array.isArray(parsed)) {
+          setExcludedGenres(parsed);
+        }
+      } catch (e) {
+        console.error("Failed to parse saved excluded genres");
+      }
+    }
+
+    const fetchGenres = async () => {
+      setIsLoadingGenres(true);
+      try {
+        const response = await fetch("/api/comick/genre");
+        if (response.ok) {
+          const genresData: Genre[] = await response.json();
+          setGenres(genresData);
+
+          const map = new Map<number, Genre>();
+          genresData.forEach((genre) => {
+            map.set(genre.id, genre);
+          });
+          setGenreMap(map);
+        }
+      } catch (err) {
+        console.error("Failed to load genre mapping", err);
+      } finally {
+        setIsLoadingGenres(false);
+      }
+    };
+
+    fetchGenres();
   }, []);
 
   useEffect(() => {
@@ -97,6 +157,14 @@ export default function Home() {
     localStorage.setItem("comicHistory", JSON.stringify(comicHistory));
   }, [comicHistory]);
 
+  useEffect(() => {
+    localStorage.setItem("includedGenres", JSON.stringify(includedGenres));
+  }, [includedGenres]);
+
+  useEffect(() => {
+    localStorage.setItem("excludedGenres", JSON.stringify(excludedGenres));
+  }, [excludedGenres]);
+
   const fetchComicsFromPage = async (page: number) => {
     const response = await fetch(`/api/comick?limit=50&page=${page}`);
 
@@ -107,23 +175,56 @@ export default function Home() {
     return await response.json();
   };
 
-  const filterComics = (comics: Comic[]) => {
-    return comics.filter((comic: Comic) => {
-      const ratingMatch = comic.content_rating
-        ? contentRating.includes(comic.content_rating)
-        : true;
+  const filterComics = useCallback(
+    (comics: Comic[]) => {
+      return comics.filter((comic: Comic) => {
+        const ratingMatch = comic.content_rating
+          ? contentRating.includes(comic.content_rating)
+          : true;
 
-      const originMatch = comic.country ? origin.includes(comic.country) : true;
+        const originMatch = comic.country
+          ? origin.includes(comic.country)
+          : true;
 
-      const statusMatch = comic.status ? status.includes(comic.status) : true;
+        const statusMatch = comic.status ? status.includes(comic.status) : true;
 
-      const isInHistory = [...comicHistory, foundComic]
-        .filter(Boolean)
-        .some((historyComic) => historyComic && historyComic.id === comic.id);
+        let genreMatch = true;
 
-      return ratingMatch && originMatch && statusMatch && !isInHistory;
-    });
-  };
+        if (includedGenres.length > 0 && comic.genres) {
+          genreMatch = includedGenres.every((genreId) =>
+            comic.genres?.includes(genreId)
+          );
+        }
+
+        if (genreMatch && excludedGenres.length > 0 && comic.genres) {
+          genreMatch = !excludedGenres.some((genreId) =>
+            comic.genres?.includes(genreId)
+          );
+        }
+
+        const isInHistory = [...comicHistory, foundComic]
+          .filter(Boolean)
+          .some((historyComic) => historyComic && historyComic.id === comic.id);
+
+        return (
+          ratingMatch &&
+          originMatch &&
+          statusMatch &&
+          genreMatch &&
+          !isInHistory
+        );
+      });
+    },
+    [
+      contentRating,
+      origin,
+      status,
+      includedGenres,
+      excludedGenres,
+      comicHistory,
+      foundComic,
+    ]
+  );
 
   const findRandomComic = async () => {
     setIsLoading(true);
@@ -255,6 +356,26 @@ export default function Home() {
     setStatus(selectedStatus);
   };
 
+  const handleIncludeGenre = (genreId: number) => {
+    setExcludedGenres((prev) => prev.filter((id) => id !== genreId));
+    setIncludedGenres((prev) => [...prev, genreId]);
+  };
+
+  const handleExcludeGenre = (genreId: number) => {
+    setIncludedGenres((prev) => prev.filter((id) => id !== genreId));
+    setExcludedGenres((prev) => [...prev, genreId]);
+  };
+
+  const handleRemoveGenre = (genreId: number) => {
+    setIncludedGenres((prev) => prev.filter((id) => id !== genreId));
+    setExcludedGenres((prev) => prev.filter((id) => id !== genreId));
+  };
+
+  const handleClearGenreFilters = () => {
+    setIncludedGenres([]);
+    setExcludedGenres([]);
+  };
+
   const getStatusLabel = (statusCode: number | undefined) => {
     if (!statusCode) return "Unknown";
 
@@ -272,13 +393,23 @@ export default function Home() {
     <main className="min-h-screen flex flex-col bg-gray-950 text-white">
       <div className="container mx-auto px-4 py-6 flex-1">
         <div className="max-w-4xl mx-auto">
-          <FilterControls
+          <FilterPanel
             contentRating={contentRating}
             origin={origin}
             status={status}
+            includedGenres={includedGenres}
+            excludedGenres={excludedGenres}
             onContentRatingChange={handleContentRatingChange}
             onOriginChange={handleOriginChange}
             onStatusChange={handleStatusChange}
+            onIncludeGenre={handleIncludeGenre}
+            onExcludeGenre={handleExcludeGenre}
+            onRemoveGenre={handleRemoveGenre}
+            onClearGenreFilters={handleClearGenreFilters}
+            genres={genres}
+            isLoading={isLoadingGenres}
+            isExpanded={isFilterExpanded}
+            onToggleExpand={() => setIsFilterExpanded(!isFilterExpanded)}
           />
 
           {!foundComic && (
@@ -395,6 +526,47 @@ export default function Home() {
                         </span>
                       )}
                     </div>
+
+                    {foundComic.genres && foundComic.genres.length > 0 && (
+                      <div className="mb-4">
+                        <h4 className="text-sm font-medium text-gray-400 mb-2">
+                          Genres
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          {foundComic.genres.map((genreId) => {
+                            const genre = genreMap.get(genreId);
+                            return genre ? (
+                              <span
+                                key={genreId}
+                                className="px-2 py-1 bg-gray-800 rounded-md text-xs flex items-center gap-1"
+                              >
+                                {genre.name}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleIncludeGenre(genreId);
+                                  }}
+                                  className="ml-1 text-gray-400 hover:text-blue-400"
+                                  title="Find more with this genre"
+                                >
+                                  <CheckCircle size={12} />
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleExcludeGenre(genreId);
+                                  }}
+                                  className="text-gray-400 hover:text-red-400"
+                                  title="Exclude this genre"
+                                >
+                                  <XCircle size={12} />
+                                </button>
+                              </span>
+                            ) : null;
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     {foundComic.desc && (
                       <div className="mb-4">
