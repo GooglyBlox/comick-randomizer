@@ -626,7 +626,7 @@ export default function Home() {
 
                 <div className="p-4 bg-gray-800 border-t border-gray-700 flex justify-end">
                   <a
-                    href={`https://comick.io/comic/${foundComic.slug}`}
+                    href={`https://comick.dev/comic/${foundComic.slug}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-white font-medium transition-colors flex items-center gap-2"

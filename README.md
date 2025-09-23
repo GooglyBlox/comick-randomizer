@@ -1,8 +1,5 @@
 # Random Comic Finder
 
-> **⚠️ ARCHIVED PROJECT ⚠️**  
-> This project is no longer functional as **Comick.io has been shut down**. This repository is kept for archival purposes and code reference only.
-
 A Next.js application that uses the Comick.io API to randomly select and redirect to comics based on user-defined filters.
 
 ## Getting Started

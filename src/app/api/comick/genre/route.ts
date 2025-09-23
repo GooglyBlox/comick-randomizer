@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    const response = await fetch("https://api.comick.io/genre/", {
+    const response = await fetch("https://api.comick.dev/genre/", {
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",

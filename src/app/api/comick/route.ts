@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const response = await fetch(
-      `https://api.comick.io/v1.0/search?limit=${limit}&page=${page}`,
+      `https://api.comick.dev/v1.0/search?limit=${limit}&page=${page}`,
       {
         headers: {
           "Content-Type": "application/json",
