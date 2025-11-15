@@ -1,6 +1,6 @@
 # Random Comic Finder
 
-A Next.js application that uses the Comick.io API to randomly select and redirect to comics based on user-defined filters.
+A Next.js application that uses the Comick.dev API to randomly select and redirect to comics based on user-defined filters.
 
 ## Getting Started
 

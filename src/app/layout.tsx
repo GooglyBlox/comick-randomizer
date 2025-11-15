@@ -6,7 +6,7 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Random Comic Finder",
-  description: "Discover random comics from Comick.io with customized filters",
+  description: "Discover random comics from Comick.dev with customized filters",
 };
 
 export default function RootLayout({

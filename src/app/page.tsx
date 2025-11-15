@@ -631,7 +631,7 @@ export default function Home() {
                     rel="noopener noreferrer"
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-white font-medium transition-colors flex items-center gap-2"
                   >
-                    Read on ComicK.io
+                    See on ComicK.dev
                     <ExternalLink size={16} />
                   </a>
                 </div>
